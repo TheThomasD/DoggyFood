@@ -3,6 +3,7 @@
 #include "Adafruit_ThinkInk.h"
 
 // ESP32-C3 SS=7,SCL(SCK)=4,SDA(MOSI)=6,BUSY=3,RST=2,DC=1
+// 250 x 122 pixel
 
 #define EPD_DC 1
 #define EPD_CS 7
