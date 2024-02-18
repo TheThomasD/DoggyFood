@@ -1,159 +1,19 @@
 #include <Arduino.h>
 #include <WiFi.h>
-#include <GxEPD2_3C.h>
-#include <Fonts/FreeMonoBold9pt7b.h>
+#include "Adafruit_ThinkInk.h"
 
 // ESP32-C3 SS=7,SCL(SCK)=4,SDA(MOSI)=6,BUSY=3,RST=2,DC=1
 
-GxEPD2_3C<GxEPD2_213_Z98c, GxEPD2_213_Z98c::HEIGHT> display(GxEPD2_213_Z98c(/*CS=7*/ SS, /*DC=*/1, /*RST=*/2, /*BUSY=*/3)); // GDEY0213Z98 122x250, SSD1680
+#define EPD_DC 1
+#define EPD_CS 7
+#define EPD_BUSY 3 // can set to -1 to not use a pin (will wait a fixed delay)
+#define SRAM_CS -1
+#define EPD_RESET 2  // can set to -1 and share with microcontroller Reset!
+#define EPD_SPI &SPI // primary SPI
 
-const char HelloWorld[] = "Hello World!";
-const char HelloWeACtStudio[] = "TheThomasD";
-
-void helloWorld()
-{
-  display.setRotation(1);
-  display.setFont(&FreeMonoBold9pt7b);
-  display.setTextColor(GxEPD_BLACK);
-  int16_t tbx, tby;
-  uint16_t tbw, tbh;
-  display.getTextBounds(HelloWorld, 0, 0, &tbx, &tby, &tbw, &tbh);
-  // center the bounding box by transposition of the origin:
-  uint16_t x = ((display.width() - tbw) / 2) - tbx;
-  uint16_t y = ((display.height() - tbh) / 2) - tby;
-  display.setFullWindow();
-  display.firstPage();
-  do
-  {
-    display.fillScreen(GxEPD_WHITE);
-    display.setCursor(x, y - tbh);
-    display.print(HelloWorld);
-    display.setTextColor(display.epd2.hasColor ? GxEPD_RED : GxEPD_BLACK);
-    display.getTextBounds(HelloWeACtStudio, 0, 0, &tbx, &tby, &tbw, &tbh);
-    x = ((display.width() - tbw) / 2) - tbx;
-    display.setCursor(x, y + tbh);
-    display.print(HelloWeACtStudio);
-  } while (display.nextPage());
-}
-
-void helloFullScreenPartialMode()
-{
-  // Serial.println("helloFullScreenPartialMode");
-  const char fullscreen[] = "full screen update";
-  const char fpm[] = "fast partial mode";
-  const char spm[] = "slow partial mode";
-  const char npm[] = "no partial mode";
-  display.setPartialWindow(0, 0, display.width(), display.height());
-  display.setRotation(1);
-  display.setFont(&FreeMonoBold9pt7b);
-  if (display.epd2.WIDTH < 104)
-    display.setFont(0);
-  display.setTextColor(GxEPD_BLACK);
-  const char *updatemode;
-  if (display.epd2.hasFastPartialUpdate)
-  {
-    updatemode = fpm;
-  }
-  else if (display.epd2.hasPartialUpdate)
-  {
-    updatemode = spm;
-  }
-  else
-  {
-    updatemode = npm;
-  }
-  // do this outside of the loop
-  int16_t tbx, tby;
-  uint16_t tbw, tbh;
-  // center update text
-  display.getTextBounds(fullscreen, 0, 0, &tbx, &tby, &tbw, &tbh);
-  uint16_t utx = ((display.width() - tbw) / 2) - tbx;
-  uint16_t uty = ((display.height() / 4) - tbh / 2) - tby;
-  // center update mode
-  display.getTextBounds(updatemode, 0, 0, &tbx, &tby, &tbw, &tbh);
-  uint16_t umx = ((display.width() - tbw) / 2) - tbx;
-  uint16_t umy = ((display.height() * 3 / 4) - tbh / 2) - tby;
-  // center HelloWorld
-  display.getTextBounds(HelloWorld, 0, 0, &tbx, &tby, &tbw, &tbh);
-  uint16_t hwx = ((display.width() - tbw) / 2) - tbx;
-  uint16_t hwy = ((display.height() - tbh) / 2) - tby;
-  display.firstPage();
-  do
-  {
-    display.fillScreen(GxEPD_WHITE);
-    display.setCursor(hwx, hwy);
-    display.print(HelloWorld);
-    display.setCursor(utx, uty);
-    display.print(fullscreen);
-    display.setCursor(umx, umy);
-    display.print(updatemode);
-  } while (display.nextPage());
-  Serial.println("helloFullScreenPartialMode done");
-}
-
-void showPartialUpdate()
-{
-  // some useful background
-  helloWorld();
-  // use asymmetric values for test
-  uint16_t box_x = 10;
-  uint16_t box_y = 15;
-  uint16_t box_w = 70;
-  uint16_t box_h = 20;
-  uint16_t cursor_y = box_y + box_h - 6;
-  if (display.epd2.WIDTH < 104)
-    cursor_y = box_y + 6;
-  float value = 13.95;
-  uint16_t incr = display.epd2.hasFastPartialUpdate ? 1 : 3;
-  display.setFont(&FreeMonoBold9pt7b);
-  if (display.epd2.WIDTH < 104)
-    display.setFont(0);
-  display.setTextColor(GxEPD_BLACK);
-  // show where the update box is
-  for (uint16_t r = 0; r < 4; r++)
-  {
-    display.setRotation(r);
-    display.setPartialWindow(box_x, box_y, box_w, box_h);
-    display.firstPage();
-    do
-    {
-      display.fillRect(box_x, box_y, box_w, box_h, GxEPD_BLACK);
-      // display.fillScreen(GxEPD_BLACK);
-    } while (display.nextPage());
-    delay(2000);
-    display.firstPage();
-    do
-    {
-      display.fillRect(box_x, box_y, box_w, box_h, GxEPD_WHITE);
-    } while (display.nextPage());
-    delay(1000);
-  }
-  // return;
-  //  show updates in the update box
-  for (uint16_t r = 0; r < 4; r++)
-  {
-    display.setRotation(r);
-    display.setPartialWindow(box_x, box_y, box_w, box_h);
-    for (uint16_t i = 1; i <= 10; i += incr)
-    {
-      display.firstPage();
-      do
-      {
-        display.fillRect(box_x, box_y, box_w, box_h, GxEPD_WHITE);
-        display.setCursor(box_x, cursor_y);
-        display.print(value * i, 2);
-      } while (display.nextPage());
-      delay(500);
-    }
-    delay(1000);
-    display.firstPage();
-    do
-    {
-      display.fillRect(box_x, box_y, box_w, box_h, GxEPD_WHITE);
-    } while (display.nextPage());
-    delay(1000);
-  }
-}
+// 2.13" Tricolor EPD with SSD1680 chipset
+ThinkInk_213_Tricolor_RW display(EPD_DC, EPD_RESET, EPD_CS, SRAM_CS, EPD_BUSY,
+                                 EPD_SPI);
 
 void setup()
 {
@@ -163,27 +23,67 @@ void setup()
   delay(2000);
   Serial.println("Initialized!");
   pinMode(8, OUTPUT);
+  display.begin(THINKINK_TRICOLOR);
+}
 
-  display.init(115200, true, 50, false);
-
-  Serial.println("Hello World!");
-  helloWorld();
-  Serial.println("FullScreenPartialMode");
-  helloFullScreenPartialMode();
-  delay(1000);
-  if (display.epd2.hasFastPartialUpdate)
-  {
-    Serial.println("PartialUpdate");
-    showPartialUpdate();
-    delay(1000);
-  }
-  display.hibernate();
+void testdrawtext(const char *text, uint16_t color) {
+  display.setCursor(0, 0);
+  display.setTextColor(color);
+  display.setTextWrap(true);
+  display.print(text);
 }
 
 void loop()
 {
-  digitalWrite(8, 1);
-  delay(500);
-  digitalWrite(8, 0);
-  delay(500);
+Serial.println("Banner demo");
+  display.clearBuffer();
+  display.setTextSize(3);
+  display.setCursor((display.width() - 144) / 2, (display.height() - 24) / 2);
+  display.setTextColor(EPD_BLACK);
+  display.print("Tri");
+  display.setTextColor(EPD_RED);
+  display.print("Color");
+  display.display();
+
+  delay(15000);
+
+  Serial.println("Color rectangle demo");
+  display.clearBuffer();
+  display.fillRect(display.width() / 3, 0, display.width() / 3,
+                   display.height(), EPD_BLACK);
+  display.fillRect((display.width() * 2) / 3, 0, display.width() / 3,
+                   display.height(), EPD_RED);
+  display.display();
+
+  delay(15000);
+
+  Serial.println("Text demo");
+  // large block of text
+  display.clearBuffer();
+  display.setTextSize(1);
+  testdrawtext(
+      "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur "
+      "adipiscing ante sed nibh tincidunt feugiat. Maecenas enim massa, "
+      "fringilla sed malesuada et, malesuada sit amet turpis. Sed porttitor "
+      "neque ut ante pretium vitae malesuada nunc bibendum. Nullam aliquet "
+      "ultrices massa eu hendrerit. Ut sed nisi lorem. In vestibulum purus a "
+      "tortor imperdiet posuere. ",
+      EPD_BLACK);
+  display.display();
+
+  delay(15000);
+
+  display.clearBuffer();
+  for (int16_t i = 0; i < display.width(); i += 4) {
+    display.drawLine(0, 0, i, display.height() - 1, EPD_BLACK);
+  }
+
+  for (int16_t i = 0; i < display.height(); i += 4) {
+    display.drawLine(display.width() - 1, 0, 0, i, EPD_RED);
+  }
+  display.display();
+
+  delay(15000);
 }
+
+
